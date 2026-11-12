@@ -37,12 +37,30 @@ export async function startFaceFilter(scenePath, { showGui = true } = {}) {
 
     const faceEvents = new FaceEvents();
 
-    // Ayudas 2D de MediaPipe y animacion de la patita.
+    // Ayudas 2D de MediaPipe.
     const mpRenderer = new MPFaceRenderer(video, canvas);
-    const pawOverlay = new PawOverlay(canvas);
 
     // Escena 3D del editor
     const player = new ThreePlayer(app);
+
+    // Lienzo independiente por encima de la mascara 3D para que la patita
+    // siempre se vea en primer plano.
+    const pawCanvas = document.createElement("canvas");
+    pawCanvas.id = "paw-overlay";
+    pawCanvas.width = video.videoWidth;
+    pawCanvas.height = video.videoHeight;
+    Object.assign(pawCanvas.style, {
+        position: "absolute",
+        inset: "0",
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        transform: "scaleX(-1)",
+        pointerEvents: "none",
+        zIndex: "3"
+    });
+    app.appendChild(pawCanvas);
+    const pawOverlay = new PawOverlay(pawCanvas);
     player.face = faceEvents;
     faceEvents.addListener((type, face) => player.dispatch(type, face));
     await player.loadProject(scenePath);
