@@ -18,6 +18,7 @@ import MPFaceTracker from "./mp_face_tracker.js";
 import MPFaceRenderer from "./mp_face_renderer.js";
 import ThreeFaceRenderer from "./three_face_renderer.js";
 import FaceEvents from "./face_events.js";
+import PawOverlay from "./paw_overlay.js";
 
 const MASK_NAME = "mesh_0";
 
@@ -36,8 +37,9 @@ export async function startFaceFilter(scenePath, { showGui = true } = {}) {
 
     const faceEvents = new FaceEvents();
 
-    // Ayudas 2D de MediaPipe (malla, puntos, contornos) sobre el video
+    // Ayudas 2D de MediaPipe y animacion de la patita.
     const mpRenderer = new MPFaceRenderer(video, canvas);
+    const pawOverlay = new PawOverlay(canvas);
 
     // Escena 3D del editor
     const player = new ThreePlayer(app);
@@ -49,8 +51,6 @@ export async function startFaceFilter(scenePath, { showGui = true } = {}) {
     faceRenderer.alignCamera();
 
     // La mascara sale del grupo de la escena: se coloca vertice a vertice en la cara.
-    // Sus hijos (si alguien los emparento en el editor) se quedan en la escena
-    // para que sigan la cabeza como el resto de objetos.
     const mask = player.rootNode.getObjectByName(MASK_NAME);
     if (mask) {
         for (const child of [...mask.children]) mask.parent.attach(child);
@@ -67,11 +67,16 @@ export async function startFaceFilter(scenePath, { showGui = true } = {}) {
         faceEvents.update(tracker);
 
         const landmarks = tracker.getLandmarks();
+        const detected = tracker.getFaceCount() > 0;
+        const smiling = faceEvents.triggers.some((trigger) => trigger.on === "smileStart" && trigger.active);
 
         mpRenderer.drawMesh(landmarks);
         mpRenderer.drawPoints(landmarks);
         mpRenderer.drawIrises(landmarks);
         mpRenderer.drawContours(landmarks);
+
+        // La patita sube mientras la sonrisa esta activa y baja al terminar.
+        pawOverlay.draw(landmarks, smiling, detected);
 
         faceRenderer.drawMesh(landmarks);
         faceRenderer.drawConnectors(landmarks);
@@ -81,7 +86,6 @@ export async function startFaceFilter(scenePath, { showGui = true } = {}) {
         if (mask) faceRenderer.syncFaceMesh(mask);
 
         // La escena sigue la cabeza (solo se oculta la mascara si no hay cara).
-        const detected = tracker.getFaceCount() > 0;
         player.rootNode.visible = detected;
         if (mask) mask.visible = detected;
 
@@ -108,7 +112,7 @@ export async function startFaceFilter(scenePath, { showGui = true } = {}) {
     update();
 
     // Para depurar desde la consola del navegador.
-    const filter = { webCamera, tracker, faceEvents, mpRenderer, player, faceRenderer, mask };
+    const filter = { webCamera, tracker, faceEvents, mpRenderer, player, faceRenderer, mask, pawOverlay };
     window.faceFilter = filter;
     return filter;
 
